@@ -41,13 +41,9 @@ const Index = () => {
         <NotesGrid notes={notes} isLoading={isLoading} />
       </main>
 
-      <footer className="border-t border-border py-6 text-center text-sm text-muted-foreground">
-        <p>
-          CampusNotes Hub — Open-source, community-driven notes sharing platform
-        </p>
-      </footer>
     </div>
   );
 };
 
 export default Index;
+

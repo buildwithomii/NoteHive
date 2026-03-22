@@ -22,7 +22,7 @@ export function CommentSection({ noteId }: CommentSectionProps) {
     if (!user || !newComment.trim()) return;
 
     addComment.mutate(
-      { noteId, userId: user.id, content: newComment.trim() },
+      { noteId, content: newComment.trim() },
       { onSuccess: () => setNewComment("") }
     );
   };
@@ -68,7 +68,7 @@ export function CommentSection({ noteId }: CommentSectionProps) {
               key={comment.id}
               comment={comment}
               noteId={noteId}
-              currentUserId={user?.id}
+              currentUserId={user?.uid}
               onDelete={() => deleteComment.mutate({ commentId: comment.id, noteId })}
             />
           ))
@@ -90,7 +90,7 @@ function CommentItem({
   currentUserId?: string;
   onDelete: () => void;
 }) {
-  const isOwner = currentUserId === comment.user_id;
+  const isOwner = currentUserId === comment.userId;
 
   return (
     <div className="bg-muted/50 p-3 rounded-lg">
@@ -98,11 +98,11 @@ function CommentItem({
         <div className="flex items-center gap-2 text-sm">
           <User className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium">
-            {comment.profiles?.display_name || "Anonymous"}
+            Anonymous
           </span>
           <span className="text-muted-foreground">·</span>
           <span className="text-muted-foreground">
-            {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+            {formatDistanceToNow(new Date(comment.createdAt.seconds * 1000), { addSuffix: true })}
           </span>
         </div>
         {isOwner && (
@@ -115,3 +115,4 @@ function CommentItem({
     </div>
   );
 }
+

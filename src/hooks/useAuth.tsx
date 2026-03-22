@@ -1,67 +1,159 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { 
+  User as FirebaseUser, 
+  onAuthStateChanged, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut as firebaseSignOut, 
+  GoogleAuthProvider, 
+  signInWithPopup 
+} from "firebase/auth";
+import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+
+interface ExtendedUser {
+  uid: string;
+  email: string | null;
+  displayName?: string | null;
+  photoURL?: string | null;
+  role: 'student' | 'teacher';
+}
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: ExtendedUser | null;
+  session: any | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
+  const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
+  const fetchUserProfile = async (uid: string) => {
+    const userDocRef = doc(db, "users", uid);
+    const userDoc = await getDoc(userDocRef);
+    return userDoc.data();
+  };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const profile = await fetchUserProfile(firebaseUser.uid);
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          role: (profile as any)?.role || 'student'
+        });
+        setSession(firebaseUser);
+      } else {
+        setUser(null);
+        setSession(null);
+      }
       setLoading(false);
     });
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-      },
-    });
-    return { error };
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+await setDoc(doc(db, "users", firebaseUser.uid), {
+        name: firebaseUser.email?.split('@')[0] || 'Student',
+        email: firebaseUser.email,
+        role: 'student',
+        agreedToTerms: false,
+        createdAt: Timestamp.now(),
+      });
+      // Refresh user with profile
+      const profile = await fetchUserProfile(firebaseUser.uid);
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+        role: 'student'
+      });
+      setSession(firebaseUser);
+    } catch (error) {
+      return { error: error as Error };
+    }
+    return { error: null };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      const profile = await fetchUserProfile(firebaseUser.uid);
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+        role: (profile as any)?.role || 'student'
+      });
+      setSession(firebaseUser);
+    } catch (error) {
+      return { error: error as Error };
+    }
+    return { error: null };
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      const userCredential = await signInWithPopup(auth, provider);
+      const firebaseUser = userCredential.user;
+      const userDocRef = doc(db, "users", firebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (!userDoc.exists()) {
+await setDoc(userDocRef, {
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          email: firebaseUser.email,
+          role: 'student',
+          agreedToTerms: false,
+          createdAt: Timestamp.now(),
+        });
+      }
+      const profile = await fetchUserProfile(firebaseUser.uid);
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+        role: (profile as any)?.role || 'student'
+      });
+      setSession(firebaseUser);
+    } catch (error) {
+      return { error: error as Error };
+    }
+    return { error: null };
+  };
+
+  const signOutUser = async () => {
+    await firebaseSignOut(auth);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      loading, 
+      signUp, 
+      signIn, 
+      signInWithGoogle, 
+      signOut: signOutUser
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -74,3 +166,4 @@ export function useAuth() {
   }
   return context;
 }
+

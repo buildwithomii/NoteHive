@@ -25,7 +25,7 @@ export default function NoteDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { data: note, isLoading, error } = useNote(id || "");
-  const { data: userRating } = useUserRating(id || "", user?.id);
+  const { data: userRating } = useUserRating(id || "", user?.uid);
   const submitRating = useSubmitRating();
   const incrementDownload = useIncrementDownload();
   const { downloadFile } = useDownload();
@@ -34,7 +34,7 @@ export default function NoteDetail() {
     if (!note) return;
 
     incrementDownload.mutate(note.id);
-    await downloadFile(note.file_path, note.file_name);
+    await downloadFile(note.fileURL, note.fileName);
   };
 
   const handleRating = (rating: number) => {
@@ -44,7 +44,7 @@ export default function NoteDetail() {
     }
     if (!id) return;
 
-    submitRating.mutate({ noteId: id, userId: user.id, rating });
+    submitRating.mutate({ noteId: id, rating });
   };
 
   if (isLoading) {
@@ -79,8 +79,8 @@ export default function NoteDetail() {
     );
   }
 
-  const avgRating = note.average_rating ?? 0;
-  const ratingCount = note.rating_count ?? 0;
+  const avgRating = note.averageRating ?? 0;
+  const ratingCount = note.ratingCount ?? 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -117,7 +117,6 @@ export default function NoteDetail() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-muted/50 rounded-lg p-4 text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
@@ -128,20 +127,20 @@ export default function NoteDetail() {
               </div>
               <div className="bg-muted/50 rounded-lg p-4 text-center">
                 <Download className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-lg font-semibold">{note.download_count}</p>
+                <p className="text-lg font-semibold">{note.downloadCount}</p>
                 <p className="text-xs text-muted-foreground">downloads</p>
               </div>
               <div className="bg-muted/50 rounded-lg p-4 text-center">
                 <User className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
                 <p className="text-sm font-semibold truncate">
-                  {note.uploader_name || "Anonymous"}
+                  {note.teacherName || "Anonymous"}
                 </p>
                 <p className="text-xs text-muted-foreground">uploader</p>
               </div>
               <div className="bg-muted/50 rounded-lg p-4 text-center">
                 <Calendar className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
                 <p className="text-sm font-semibold">
-                  {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(note.createdAt.seconds * 1000), { addSuffix: true })}
                 </p>
                 <p className="text-xs text-muted-foreground">uploaded</p>
               </div>
@@ -149,20 +148,18 @@ export default function NoteDetail() {
 
             <Separator />
 
-            {/* Download Button */}
             <div className="flex flex-col sm:flex-row gap-4 items-center">
               <Button size="lg" className="gap-2 w-full sm:w-auto" onClick={handleDownload}>
                 <Download className="h-5 w-5" />
                 Download PDF
               </Button>
               <p className="text-sm text-muted-foreground">
-                {note.file_name} • {(note.file_size / 1024 / 1024).toFixed(2)} MB
+                {note.fileName} • {(note.fileSize / 1024 / 1024).toFixed(2)} MB
               </p>
             </div>
 
             <Separator />
 
-            {/* Rating Section */}
             <div>
               <h3 className="font-display text-lg font-semibold mb-3">Rate these notes</h3>
               {user ? (
@@ -191,7 +188,6 @@ export default function NoteDetail() {
 
             <Separator />
 
-            {/* Comments */}
             <CommentSection noteId={note.id} />
           </CardContent>
         </Card>
@@ -199,3 +195,4 @@ export default function NoteDetail() {
     </div>
   );
 }
+

@@ -1,41 +1,18 @@
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ref, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 
 export function useDownload() {
   const downloadFile = async (filePath: string, fileName: string) => {
     try {
-      const { data } = supabase.storage.from("notes").getPublicUrl(filePath);
-      
-      if (!data.publicUrl) {
-        toast.error("File URL not available");
-        return;
-      }
-
-      // Test if file exists
-      const response = await fetch(data.publicUrl);
-      if (!response.ok) {
-        toast.error("File not found or access denied");
-        return;
-      }
-
-      // Create blob and download
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
+      const fileURL = await getDownloadURL(ref(storage, filePath));
+      window.open(fileURL, '_blank');
       toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
-      toast.error("Download failed");
+      toast.error("Download failed. Please try again.");
     }
   };
 
   return { downloadFile };
 }
-

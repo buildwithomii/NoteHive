@@ -76,3 +76,11 @@ export const SORT_OPTIONS = [
   { value: "highest-rated", label: "Highest Rated" },
   { value: "most-downloaded", label: "Most Downloaded" },
 ] as const;
+
+export const ROLES = {
+  STUDENT: 'student' as const,
+  TEACHER: 'teacher' as const,
+} as const;
+
+export type Role = typeof ROLES[keyof typeof ROLES];
+

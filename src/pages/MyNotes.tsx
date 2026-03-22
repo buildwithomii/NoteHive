@@ -156,17 +156,17 @@ function NoteItem({ note }: { note: Note }) {
           </span>
           <span className="flex items-center gap-1">
             <Download className="h-3 w-3" />
-            {note.download_count} downloads
+            {note.downloadCount} downloads
           </span>
-          {note.average_rating && (
+          {note.averageRating && (
             <span className="flex items-center gap-1">
               <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-              {note.average_rating.toFixed(1)}
+              {note.averageRating.toFixed(1)}
             </span>
           )}
           <span className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
-            {format(new Date(note.created_at), "MMM d, yyyy")}
+            {format(new Date(note.createdAt.seconds * 1000), "MMM d, yyyy")}
           </span>
         </div>
       </CardContent>
@@ -176,7 +176,7 @@ function NoteItem({ note }: { note: Note }) {
 
 export default function MyNotes() {
   const { user, loading: authLoading } = useAuth();
-  const { data: notes, isLoading } = useUserNotes(user?.id);
+  const { data: notes, isLoading } = useUserNotes(user?.uid);
 
   if (authLoading) {
     return (
@@ -234,3 +234,4 @@ export default function MyNotes() {
     </div>
   );
 }
+

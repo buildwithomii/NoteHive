@@ -17,7 +17,7 @@ const authSchema = z.object({
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { user, signIn, signUp, loading } = useAuth();
+  const { user, signIn, signUp, signInWithGoogle, loading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,13 +69,25 @@ export default function Auth() {
     setIsSubmitting(false);
 
     if (error) {
-      if (error.message.includes("already registered")) {
+      if (error.message.includes("already")) {
         toast.error("This email is already registered. Please sign in instead.");
       } else {
         toast.error(error.message || "Failed to create account");
       }
     } else {
       toast.success("Account created! You're now signed in.");
+      navigate("/");
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsSubmitting(true);
+    const { error } = await signInWithGoogle();
+    setIsSubmitting(false);
+    if (error) {
+      toast.error("Google login failed");
+    } else {
+      toast.success("Welcome with Google!");
       navigate("/");
     }
   };
@@ -95,7 +107,7 @@ export default function Auth() {
           <div className="flex justify-center mb-4">
             <BookOpen className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="font-display text-2xl">CampusNotes Hub</CardTitle>
+          <CardTitle className="font-display text-2xl">NoteHive</CardTitle>
           <CardDescription>
             Sign in to upload, rate, and comment on notes
           </CardDescription>
@@ -141,6 +153,27 @@ export default function Auth() {
                     "Sign In"
                   )}
                 </Button>
+
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="px-2 bg-card text-muted-foreground">
+                      or continue with
+                    </span>
+                  </div>
+                </div>
+
+                <button 
+                  type="button" 
+                  className="w-full flex items-center justify-center gap-3 border border-gray-600 rounded-lg px-4 py-3 hover:bg-gray-800 transition text-foreground"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSubmitting}
+                >
+                  <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google" />
+                  <span>Continue with Google</span>
+                </button>
               </form>
             </TabsContent>
 
@@ -178,6 +211,27 @@ export default function Auth() {
                     "Create Account"
                   )}
                 </Button>
+
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="px-2 bg-card text-muted-foreground">
+                      or continue with
+                    </span>
+                  </div>
+                </div>
+
+                <button 
+                  type="button" 
+                  className="w-full flex items-center justify-center gap-3 border border-gray-600 rounded-lg px-4 py-3 hover:bg-gray-800 transition text-foreground"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSubmitting}
+                >
+                  <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google" />
+                  <span>Continue with Google</span>
+                </button>
               </form>
             </TabsContent>
           </Tabs>
@@ -186,3 +240,4 @@ export default function Auth() {
     </div>
   );
 }
+

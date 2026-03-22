@@ -1,67 +1,70 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  getDocs, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  serverTimestamp 
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface Comment {
   id: string;
   note_id: string;
-  user_id: string;
+  userId: string;
   content: string;
-  created_at: string;
-  profiles?: {
-    display_name: string | null;
-  };
+  createdAt: any;
+  userName?: string;
 }
 
 export function useComments(noteId: string) {
   return useQuery({
     queryKey: ["comments", noteId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("comments")
-        .select("*")
-        .eq("note_id", noteId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      // Fetch profile names separately
-      const userIds = [...new Set(data.map((c) => c.user_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name")
-        .in("user_id", userIds);
-
-      const profileMap = new Map(profiles?.map((p) => [p.user_id, p.display_name]) || []);
-
-      return data.map((comment) => ({
-        ...comment,
-        profiles: { display_name: profileMap.get(comment.user_id) || null },
-      })) as Comment[];
+      const commentsQuery = query(
+        collection(db, `notes/${noteId}/comments`),
+        orderBy("createdAt", "desc")
+      );
+      const snapshot = await getDocs(commentsQuery);
+      return snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          note_id: noteId,
+          userId: data.userId,
+          content: data.content,
+          createdAt: data.createdAt,
+        } as Comment;
+      });
     },
+    enabled: !!noteId,
   });
 }
 
 export function useAddComment() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
       noteId,
-      userId,
       content,
     }: {
       noteId: string;
-      userId: string;
       content: string;
     }) => {
-      const { error } = await supabase.from("comments").insert({
-        note_id: noteId,
-        user_id: userId,
+      if (!user) throw new Error('Must be logged in to comment');
+      
+      await addDoc(collection(db, `notes/${noteId}/comments`), {
+        userId: user.uid,
         content,
+        createdAt: serverTimestamp(),
       });
-
-      if (error) throw error;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["comments", variables.noteId] });
@@ -75,11 +78,14 @@ export function useAddComment() {
 
 export function useDeleteComment() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ commentId, noteId }: { commentId: string; noteId: string }) => {
-      const { error } = await supabase.from("comments").delete().eq("id", commentId);
-      if (error) throw error;
+      if (!user) throw new Error('Must be logged in to delete comment');
+      
+      const commentRef = doc(db, `notes/${noteId}/comments`, commentId);
+      await deleteDoc(commentRef);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["comments", variables.noteId] });
@@ -87,3 +93,4 @@ export function useDeleteComment() {
     },
   });
 }
+

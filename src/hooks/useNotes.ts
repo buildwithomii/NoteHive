@@ -1,22 +1,39 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  getDocs, 
+  getDoc,
+  addDoc, 
+  serverTimestamp, 
+  doc,
+  updateDoc,
+  increment
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
+import { ROLES } from "@/lib/constants";
+import type { Timestamp } from "firebase/firestore";
 
 export interface Note {
   id: string;
-  user_id: string;
+  uploadedBy: string;
   title: string;
   description: string | null;
   semester: number;
   subject: string;
-  file_path: string;
-  file_name: string;
-  file_size: number;
-  download_count: number;
-  created_at: string;
-  average_rating?: number;
-  rating_count?: number;
-  uploader_name?: string;
+  fileURL: string;
+  fileName: string;
+  fileSize: number;
+  downloadCount: number;
+  teacherName: string;
+  createdAt: Timestamp;
+  averageRating?: number;
+  ratingCount?: number;
 }
 
 export interface NoteFilters {
@@ -29,38 +46,40 @@ export function useNotes(filters: NoteFilters = {}) {
   return useQuery({
     queryKey: ["notes", filters],
     queryFn: async () => {
-      let query = supabase
-        .from("notes_with_stats")
-        .select("*");
+      let q = query(collection(db, "notes"), orderBy("createdAt", "desc"));
 
       if (filters.semester) {
-        query = query.eq("semester", filters.semester);
+        q = query(q, where("semester", "==", filters.semester));
       }
 
+      const snapshot = await getDocs(q);
+      let notes = snapshot.docs.map((d) => ({ 
+        id: d.id, 
+        ...d.data() 
+      } as Note));
+
       if (filters.search) {
-        query = query.or(
-          `title.ilike.%${filters.search}%,subject.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
+        const lowerSearch = filters.search.toLowerCase();
+        notes = notes.filter((note) =>
+          note.title.toLowerCase().includes(lowerSearch) ||
+          note.subject.toLowerCase().includes(lowerSearch) ||
+          (note.description && note.description.toLowerCase().includes(lowerSearch))
         );
       }
 
       switch (filters.sortBy) {
         case "oldest":
-          query = query.order("created_at", { ascending: true });
+          notes.sort((a, b) => (a.createdAt.seconds || 0) - (b.createdAt.seconds || 0));
           break;
         case "highest-rated":
-          query = query.order("average_rating", { ascending: false });
+          notes.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
           break;
         case "most-downloaded":
-          query = query.order("download_count", { ascending: false });
+          notes.sort((a, b) => (b.downloadCount || 0) - (a.downloadCount || 0));
           break;
-        default:
-          query = query.order("created_at", { ascending: false });
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as Note[];
+      return notes;
     },
   });
 }
@@ -69,14 +88,10 @@ export function useNote(id: string) {
   return useQuery({
     queryKey: ["note", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("notes_with_stats")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data as Note | null;
+      const noteRef = doc(db, "notes", id);
+      const snapshot = await getDoc(noteRef);
+      if (!snapshot.exists()) return null;
+      return { id, ...snapshot.data() } as Note | null;
     },
     enabled: !!id,
   });
@@ -84,6 +99,7 @@ export function useNote(id: string) {
 
 export function useUploadNote() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -92,48 +108,60 @@ export function useUploadNote() {
       description,
       semester,
       subject,
-      userId,
     }: {
       file: File;
       title: string;
       description: string;
       semester: number;
       subject: string;
-      userId: string;
     }) => {
+      if (!user) {
+        throw new Error('Must be logged in to upload');
+      }
+      if (user.role !== ROLES.TEACHER) {
+        throw new Error('Only teachers can upload notes');
+      }
+
+      if (file.type !== 'application/pdf') {
+        throw new Error('Only PDF files allowed');
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error('File too large (max 10MB)');
+      }
+
       const fileExt = file.name.split(".").pop();
-      const filePath = `${userId}/${Date.now()}.${fileExt}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `notes/${user.uid}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("notes")
-        .upload(filePath, file);
+      const storageRef = ref(storage, filePath);
+      const uploadSnapshot = await uploadBytes(storageRef, file);
+      const fileURL = await getDownloadURL(uploadSnapshot.ref);
 
-      if (uploadError) throw uploadError;
+      const noteData = {
+        title,
+        description,
+        semester,
+        subject,
+        fileURL,
+        fileName: file.name,
+        fileSize: file.size,
+        downloadCount: 0,
+        uploadedBy: user.uid,
+        teacherName: user.displayName || user.email?.split('@')[0] || 'Teacher',
+        averageRating: 0,
+        ratingCount: 0,
+        createdAt: serverTimestamp(),
+      };
 
-      const { data, error } = await supabase
-        .from("notes")
-        .insert({
-          user_id: userId,
-          title,
-          description,
-          semester,
-          subject,
-          file_path: filePath,
-          file_name: file.name,
-          file_size: file.size,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      const docRef = await addDoc(collection(db, "notes"), noteData);
+      return { id: docRef.id, ...noteData };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
       toast.success("Notes uploaded successfully!");
     },
     onError: (error) => {
-      toast.error(`Upload failed: ${error.message}`);
+      toast.error(`Upload failed: ${(error as Error).message}`);
     },
   });
 }
@@ -143,13 +171,14 @@ export function useIncrementDownload() {
 
   return useMutation({
     mutationFn: async (noteId: string) => {
-      const { error } = await supabase.rpc("increment_download_count", {
-        note_id: noteId,
+      const noteRef = doc(db, "notes", noteId);
+      await updateDoc(noteRef, {
+        downloadCount: increment(1),
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
     },
   });
 }
+

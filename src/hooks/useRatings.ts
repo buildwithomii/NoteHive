@@ -1,6 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
 
 export function useUserRating(noteId: string, userId: string | undefined) {
   return useQuery({
@@ -8,41 +18,34 @@ export function useUserRating(noteId: string, userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return null;
       
-      const { data, error } = await supabase
-        .from("ratings")
-        .select("rating")
-        .eq("note_id", noteId)
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data?.rating ?? null;
+      const ratingRef = doc(db, `notes/${noteId}/ratings`, userId);
+      const ratingSnap = await getDoc(ratingRef);
+      if (!ratingSnap.exists()) return null;
+      return ratingSnap.data().rating as number | null;
     },
-    enabled: !!userId,
+    enabled: !!userId && !!noteId,
   });
 }
 
 export function useSubmitRating() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
       noteId,
-      userId,
       rating,
     }: {
       noteId: string;
-      userId: string;
       rating: number;
     }) => {
-      const { error } = await supabase
-        .from("ratings")
-        .upsert(
-          { note_id: noteId, user_id: userId, rating },
-          { onConflict: "note_id,user_id" }
-        );
-
-      if (error) throw error;
+      if (!user) throw new Error('Must be logged in to rate');
+      
+      const ratingRef = doc(db, `notes/${noteId}/ratings`, user.uid);
+      await updateDoc(ratingRef, {
+        rating,
+        updatedAt: new Date(),
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
@@ -55,3 +58,4 @@ export function useSubmitRating() {
     },
   });
 }
+

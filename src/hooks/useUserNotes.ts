@@ -1,7 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { Note } from "./useNotes";
+import { collection, query, where, orderBy, getDocs, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
+import { ref, deleteObject } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
+import { Note } from "./useNotes";
 
 export function useUserNotes(userId: string | undefined) {
   return useQuery({
@@ -9,14 +12,13 @@ export function useUserNotes(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return [];
       
-      const { data, error } = await supabase
-        .from("notes_with_stats")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data as Note[];
+      const q = query(
+        collection(db, "notes"),
+        where("uploadedBy", "==", userId),
+        orderBy("createdAt", "desc")
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note));
     },
     enabled: !!userId,
   });
@@ -39,20 +41,13 @@ export function useUpdateNote() {
       semester: number;
       subject: string;
     }) => {
-      const { data, error } = await supabase
-        .from("notes")
-        .update({
-          title,
-          description,
-          semester,
-          subject,
-        })
-        .eq("id", noteId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      const noteRef = doc(db, "notes", noteId);
+      await updateDoc(noteRef, {
+        title,
+        description,
+        semester,
+        subject,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
@@ -70,33 +65,21 @@ export function useDeleteNote() {
 
   return useMutation({
     mutationFn: async (noteId: string) => {
-      // First get the note to find the file path
-      const { data: note, error: fetchError } = await supabase
-        .from("notes")
-        .select("file_path")
-        .eq("id", noteId)
-        .single();
+      const noteRef = doc(db, "notes", noteId);
+      const noteSnap = await getDoc(noteRef);
+      if (!noteSnap.exists()) throw new Error("Note not found");
 
-      if (fetchError) throw fetchError;
-
-      // Delete the file from storage
-      if (note?.file_path) {
-        const { error: storageError } = await supabase.storage
-          .from("notes")
-          .remove([note.file_path]);
-        
-        if (storageError) {
-          console.error("Storage deletion error:", storageError);
+      const note = noteSnap.data() as Note;
+      if (note.fileURL) {
+        try {
+          const storageRef = ref(storage, note.fileURL);
+          await deleteObject(storageRef);
+        } catch (error) {
+          console.error("Storage deletion error:", error);
         }
       }
 
-      // Delete the note record
-      const { error } = await supabase
-        .from("notes")
-        .delete()
-        .eq("id", noteId);
-
-      if (error) throw error;
+      await deleteDoc(noteRef);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
@@ -108,3 +91,4 @@ export function useDeleteNote() {
     },
   });
 }
+

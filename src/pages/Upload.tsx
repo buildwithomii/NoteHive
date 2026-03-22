@@ -14,6 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@/components/ui/toggle-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useUploadNote } from "@/hooks/useNotes";
@@ -32,6 +36,7 @@ export default function Upload() {
   const { user, loading } = useAuth();
   const uploadNote = useUploadNote();
 
+  const [uploadType, setUploadType] = useState<'notes' | 'pyqs'>('notes');
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [semester, setSemester] = useState<number | null>(null);
@@ -46,8 +51,6 @@ export default function Upload() {
       navigate("/auth");
     }
   }, [user, loading, navigate]);
-
-  
 
   const handleFileChange = (selectedFile: File | null) => {
     if (!selectedFile) return;
@@ -110,10 +113,14 @@ export default function Upload() {
         description,
         semester: semester!,
         subject,
-        userId: user.id,
+        userId: user.uid,
+        type: uploadType,
       },
       {
         onSuccess: () => {
+          toast.success(`${
+            uploadType === 'notes' ? 'Notes' : 'PYQs'
+          } uploaded successfully!`);
           navigate("/");
         },
       }
@@ -137,11 +144,29 @@ export default function Upload() {
           <CardHeader>
             <CardTitle className="font-display text-2xl flex items-center gap-2">
               <UploadIcon className="h-6 w-6" />
-              Upload Notes
+              Upload {uploadType === 'notes' ? 'Notes' : 'PYQs'}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Type Toggle */}
+              <div className="space-y-2">
+                <Label>Content Type</Label>
+                <ToggleGroup 
+                  type="single" 
+                  value={uploadType}
+                  onValueChange={(value) => setUploadType(value as 'notes' | 'pyqs')}
+                  className="justify-center"
+                >
+                  <ToggleGroupItem value="notes" variant="outline" className="flex-1">
+                    Notes
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="pyqs" variant="outline" className="flex-1">
+                    PYQs
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+
               {/* File Upload */}
               <div
                 className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
@@ -204,7 +229,7 @@ export default function Upload() {
                 <Label htmlFor="title">Title *</Label>
                 <Input
                   id="title"
-                  placeholder="e.g., Data Structures Complete Notes"
+                  placeholder={`e.g., ${uploadType === 'notes' ? 'Data Structures Complete Notes' : 'CS PYQs 2023-2024'}`}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -218,7 +243,7 @@ export default function Upload() {
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
-                  placeholder="Brief description of what's covered in these notes..."
+placeholder={`Brief description of what's covered${uploadType === 'notes' ? ' in these notes' : ' in these questions'}`}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
@@ -281,7 +306,7 @@ export default function Upload() {
                 ) : (
                   <>
                     <UploadIcon className="h-4 w-4 mr-2" />
-                    Upload Notes
+                    Upload {uploadType === 'notes' ? 'Notes' : 'PYQs'}
                   </>
                 )}
               </Button>
@@ -292,3 +317,4 @@ export default function Upload() {
     </div>
   );
 }
+
