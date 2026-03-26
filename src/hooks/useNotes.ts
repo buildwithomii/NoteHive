@@ -16,7 +16,6 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/hooks/useAuth";
-import { ROLES } from "@/lib/constants";
 import type { Timestamp } from "firebase/firestore";
 
 export interface Note {
@@ -46,7 +45,10 @@ export function useNotes(filters: NoteFilters = {}) {
   return useQuery({
     queryKey: ["notes", filters],
     queryFn: async () => {
-      let q = query(collection(db, "notes"), orderBy("createdAt", "desc"));
+      let q = query(
+        collection(db, "notes"), 
+        orderBy("createdAt", "desc")
+      );
 
       if (filters.semester) {
         q = query(q, where("semester", "==", filters.semester));
@@ -118,9 +120,6 @@ export function useUploadNote() {
       if (!user) {
         throw new Error('Must be logged in to upload');
       }
-      if (user.role !== ROLES.TEACHER) {
-        throw new Error('Only teachers can upload notes');
-      }
 
       if (file.type !== 'application/pdf') {
         throw new Error('Only PDF files allowed');
@@ -147,6 +146,7 @@ export function useUploadNote() {
         fileSize: file.size,
         downloadCount: 0,
         uploadedBy: user.uid,
+        uploaderEmail: user.email,
         teacherName: user.displayName || user.email?.split('@')[0] || 'Teacher',
         averageRating: 0,
         ratingCount: 0,

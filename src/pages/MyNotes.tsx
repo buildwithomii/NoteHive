@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Edit, Trash2, FileText, Download, Star, Calendar } from "lucide-react";
+
 import { format } from "date-fns";
 import type { Note } from "@/hooks/useNotes";
 
@@ -98,6 +101,9 @@ function NoteItem({ note }: { note: Note }) {
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap gap-1 mb-2 items-center">
+              <span className="text-sm font-medium text-muted-foreground">Semester {note.semester}</span>
+            </div>
             <CardTitle className="text-lg truncate">{note.title}</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">{note.subject}</p>
           </div>
@@ -175,6 +181,7 @@ function NoteItem({ note }: { note: Note }) {
 }
 
 export default function MyNotes() {
+  // No tabs needed
   const { user, loading: authLoading } = useAuth();
   const { data: notes, isLoading } = useUserNotes(user?.uid);
 

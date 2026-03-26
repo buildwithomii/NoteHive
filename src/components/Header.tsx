@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { BookOpen, LogOut, Upload, User, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { ROLES } from "@/lib/constants";
 
 export function Header() {
   const { user, signOut } = useAuth();
@@ -17,7 +18,7 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center gap-3">
-          {user ? (
+              {user ? (
             <>
               <Link to="/my-notes">
                 <Button variant="ghost" size="sm" className="gap-2">

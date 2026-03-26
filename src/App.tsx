@@ -29,7 +29,6 @@ const App = () => (
             <Route path="/my-notes" element={<MyNotes />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="*" element={<NotFound />} />
-
           </Routes>
         </BrowserRouter>
         <div className="mt-auto border-t border-border">

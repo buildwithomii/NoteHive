@@ -80,6 +80,7 @@ export const SORT_OPTIONS = [
 export const ROLES = {
   STUDENT: 'student' as const,
   TEACHER: 'teacher' as const,
+  ADMIN: 'admin' as const,
 } as const;
 
 export type Role = typeof ROLES[keyof typeof ROLES];

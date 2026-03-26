@@ -11,6 +11,7 @@ export function useUserNotes(userId: string | undefined) {
     queryKey: ["userNotes", userId],
     queryFn: async () => {
       if (!userId) return [];
+      console.log('Fetching user notes for UID:', userId);
       
       const q = query(
         collection(db, "notes"),
@@ -18,7 +19,9 @@ export function useUserNotes(userId: string | undefined) {
         orderBy("createdAt", "desc")
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note));
+      const notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note));
+      console.log('Fetched notes:', notes);
+      return notes;
     },
     enabled: !!userId,
   });
@@ -59,6 +62,8 @@ export function useUpdateNote() {
     },
   });
 }
+
+
 
 export function useDeleteNote() {
   const queryClient = useQueryClient();

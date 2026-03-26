@@ -1,52 +1,57 @@
-# Study Vault
+# NoteHive 📚
 
-Campus notes sharing platform. Share, discover, and download study notes across all semesters. Community-driven.
+A platform for sharing and discovering study notes across all semesters.
+Built for students, by students.
 
-## Features
-- Browse notes by subject/semester
-- User ratings and comments
-- Upload your own notes (PDF support)
-- Auth with Supabase
-- Responsive design
+## 🌐 Live Site
+[notehive.site](https://notehive.site)
 
-## Tech Stack
-- React + TypeScript
-- Tailwind CSS + shadcn/ui
-- Vite
-- React Router
-- Supabase (auth, DB, storage)
-- TanStack Query
-- Recharts
+## ✨ Features
+- 📤 Upload study notes and PYQs as PDFs
+- 🔍 Search and filter notes by subject and semester
+- ⬇️ Download notes for free
+- ⭐ Rate and comment on notes
+- 🔐 Google login authentication
+- 👑 Admin panel for content moderation
 
-## Quick Start
+## 🛠️ Tech Stack
+- **Frontend:** React + Next.js + TypeScript
+- **Backend:** Firebase (Auth, Firestore, Storage)
+- **Styling:** Tailwind CSS
+- **Deployment:** Vercel
 
-\`\`\`bash
-npm install
-npm run dev
-\`\`\`
+## 🚀 Getting Started
 
-Open http://localhost:8080
+### Prerequisites
+- Node.js
+- Firebase account
 
-## Development
+### Installation
+1. Clone the repo
+```bash
+   git clone https://github.com/yourusername/notehive.git
+   cd notehive
+```
 
-- \`npm run dev\`: Start dev server
-- \`npm run build\`: Build for production
-- \`npm run lint\`: Lint code
+2. Install dependencies
+```bash
+   npm install
+```
 
-## Deployment
+3. Create `.env.local` and add your Firebase config
+```
+   NEXT_PUBLIC_FIREBASE_API_KEY=your_key
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_bucket
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
 
-Deploy to:
-- Vercel/Netlify (connect GitHub repo)
-- Any static host (after \`npm run build\`)
+4. Run the development server
+```bash
+   npm run dev
+```
 
-## Project Structure
-\`\`\`
-src/
-├── components/     # UI components + shadcn
-├── hooks/          # Custom React hooks (queries, auth)
-├── pages/          # Page components
-├── integrations/   # Supabase client/types
-└── lib/            # Utils, constants
-\`\`\`
-
-Enjoy building!
+## 👨‍💻 Author
+Built by Om Dwivedi
